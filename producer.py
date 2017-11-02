@@ -5,7 +5,7 @@ import time
 from random import randint
 from random import uniform
 
-from kafka import KafkaProducer
+from confluent_kafka import Producer as KafkaProducer
 
 topics = {'a': 0.2, 'b': 0.1, 'c': 0.5, 'd': 0.3}
 
@@ -19,10 +19,12 @@ class Producer(threading.Thread):
         self.topic = topic
 
     def run(self):
-        producer = KafkaProducer(bootstrap_servers='kafka:9092')
-
+        p = KafkaProducer({'bootstrap.servers': 'kafka:9092',
+                           'plugin.library.paths': 'monitoring-interceptor'})
+        p.produce('mytopic', key='hello', value='world')
+        
         while True:
-            producer.send(self.topic, str.encode(str(randint(0, 9))))
+            p.produce(self.topic, str.encode(str(randint(0, 9))))
             time.sleep(uniform(0.0, self.sleep))
 
 

@@ -7,7 +7,10 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-    image: confluentinc/cp-kafka
+      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
+      KAFKA_CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 1
+    image: confluentinc/cp-enterprise-kafka
     links: 
       - zookeeper
     ports: 
@@ -28,6 +31,8 @@ services:
       CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
       CONNECT_ZOOKEEPER_CONNECT: zookeeper:2181
+      CONNECT_PRODUCER_INTERCEPTOR_CLASSES: io.confluent.monitoring.clients.interceptor.MonitoringProducerInterceptor
+      CONNECT_CONSUMER_INTERCEPTOR_CLASSES: io.confluent.monitoring.clients.interceptor.MonitoringConsumerInterceptor
     image: confluentinc/cp-kafka-connect
     links: 
       - zookeeper
@@ -37,17 +42,39 @@ services:
     volumes:
       - ./kafka-connect/jars:/etc/kafka-connect/jars
       - ~/.aws:/root/.aws
-  kafka-connect-ui: 
-    environment: 
-      CONNECT_URL: "http://kafka-connect:8083"
-    image: landoop/kafka-connect-ui
+  control-center: 
+    image: confluentinc/cp-enterprise-control-center
     links: 
+      - zookeeper
+      - kafka
       - kafka-connect
-    ports:
-      - 8000:8000
+    ports: 
+      - 9021:9021
+    environment:
+      CONTROL_CENTER_ZOOKEEPER_CONNECT: zookeeper:2181
+      CONTROL_CENTER_BOOTSTRAP_SERVERS: kafka:9092
+      CONTROL_CENTER_REPLICATION_FACTOR: 1
+      CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: 1
+      CONTROL_CENTER_INTERNAL_TOPICS_PARTITIONS: 1
+      CONTROL_CENTER_STREAMS_NUM_STREAM_THREADS: 2
+      CONTROL_CENTER_CONNECT_CLUSTER: http://kafka-connect:8083
   zookeeper: 
     image: confluentinc/cp-zookeeper
     ports: 
       - 2181:2181
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
+  producer:
+    image: imduffy15/cp-kafka-python-runner
+    command: python3 /root/producer.py
+    volumes:
+        - ./:/root
+    links:
+        - kafka
+  consumer:
+    image: imduffy15/cp-kafka-python-runner
+    command: python3 /root/consumer.py
+    volumes:
+        - ./:/root
+    links:
+        - kafka
