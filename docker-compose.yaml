@@ -4,7 +4,7 @@ services:
   kafka: 
     environment: 
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181/kafka"
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     image: confluentinc/cp-kafka
@@ -12,6 +12,20 @@ services:
       - zookeeper
     ports: 
       - 9092:9092
+  schema-registry:
+    image: confluentinc/cp-schema-registry
+    ports:
+      - "8081:8081"
+    links: 
+      - zookeeper
+      - kafka
+    environment:
+      SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: "zookeeper:2181/kafka"
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_LISTENERS: http://schema-registry:8081
+      SCHEMA_REGISTRY_ACCESS_CONTROL_ALLOW_METHODS: "GET,POST,PUT,OPTIONS"
+      SCHEMA_REGISTRY_ACCESS_CONTROL_ALLOW_ORIGIN: "*"
+      KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:9092
   kafka-connect: 
     environment: 
       CONNECT_BOOTSTRAP_SERVERS: kafka:9092
@@ -22,16 +36,21 @@ services:
       CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
-      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
-      CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_KEY_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
       CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_INTERNAL_KEY_CONVERTER_SCHEMA_ENABLE: "false"
+      CONNECT_INTERNAL_VALUE_CONVERTER_SCHEMA_ENABLE: "false"
       CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
-      CONNECT_ZOOKEEPER_CONNECT: zookeeper:2181
+      CONNECT_ZOOKEEPER_CONNECT: "zookeeper:2181/kafka"
     image: confluentinc/cp-kafka-connect
     links: 
       - zookeeper
       - kafka
+      - schema-registry
     ports: 
       - 8083:8083
     volumes:
@@ -51,3 +70,11 @@ services:
       - 2181:2181
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
+  schema-registry-ui:
+    environment:
+      SCHEMAREGISTRY_URL: "http://schema-registry:8081"
+    image: landoop/schema-registry-ui
+    links:
+      - schema-registry
+    ports:
+      - 8001:8000

@@ -14,3 +14,5 @@ _In order to get this working on MacOS please add kafka and kafka-connect to /et
 127.0.0.1 localhost kafka kafka-connect
 ```
 
+
+http://cloudurable.com/blog/kafka-avro-schema-registry/index.html
